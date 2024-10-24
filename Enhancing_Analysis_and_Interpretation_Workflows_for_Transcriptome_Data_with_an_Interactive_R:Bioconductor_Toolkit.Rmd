@@ -1,0 +1,1166 @@
+---
+title: >
+  Enhancing analysis and interpretation workflows for transcriptome data with an interactive R/Bioconductor toolkit
+author:
+- name: Annekathrin Silvia Nedwed
+  affiliation: 
+  - &id1 Institute of Medical Biostatistics, Epidemiology and Informatics (IMBEI), Mainz<br>
+  email: anneludt@uni-mainz.de
+date: "`r BiocStyle::doc_date()`"
+package: "`r BiocStyle::pkg_ver('GeDi')`"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: show
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+link-citations: true
+bibliography: "thesis_supplement.bib"
+---
+
+```{r setup, include=FALSE, cache=FALSE, eval = TRUE, echo = FALSE}
+library("knitr")
+opts_chunk$set(
+  fig.align = "center",
+  fig.show = "asis",
+  eval = TRUE,
+  fig.width = 10,
+  fig.height = 7,
+  tidy = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  size = "small",
+  comment = "##",
+  echo = TRUE,
+  results = "markup"
+)
+options(replace.assign = TRUE, width = 80)
+```
+
+
+This document accompanies my PhD thesis titled "Enhancing analysis and interpretation workflows for transcriptome data with an interactive R Bioconductor toolkit". The document will follow all the analysis and steps documented in my PhD thesis in Section 3.3.
+
+# About the data
+
+The data illustrated in this document is documented in detail in Section 3.3.1 of my PhD thesis. 
+
+The datasets shown is an RNA-seq dataset, available at the Gene Expression Omnibus under the accession code [GSE130842](https://www.ncbi.xyz/geo/query/acc.cgi?acc=GSE130842).
+
+The data represents a mouse data set of 56 different samples isolated from various murine tissues. In this analysis, I will focus in the Klrg1-negative Nfil3(GFP)-negative Tregs and Klrg1-positive Nfil3(GFP)-positive Tregs samples as discussed with the original authors of the manuscript [@Delacher2020]. To analyse the data, the count data was downloaded from the Gene Expression Omnibus (https://www.ncbi.xyz/geo/query/acc.cgi?acc=GSE130842). The count data can be found in file "GSE130842_Count_table_Delacher_et_al_2019.xlsx". Additionally, a metadata file was set up, containing the sample names, conditions and replicate numbers following the information of the GEO entry. This is the file named "GSE130842_Count_table_Delacher_et_al_2019.csv"
+
+The workflow shown in this document will follow the steps described in our manuscript "Interactive and Reproducible Workflows for Exploring and Modeling RNA-seq Data with pcaExplorer, Ideal, and GeneTonic" [@Ludt2022].
+
+# Loading required packages
+
+First, load the packages required to perform all the analytic steps presented in this document.
+
+```{r loadLibraries, results='hide'}
+library("DESeq2")
+library("topGO")
+library("pcaExplorer")
+library("ideal")
+library("GeneTonic")
+library("apeglm")
+library("dplyr")
+library("readxl")
+library("GeDi")
+library("org.Mm.eg.db")
+library("utils")
+library("ComplexHeatmap")
+library("readxl")
+library("ggplot2")
+library("dplyr")
+library("forcats")
+library("visNetwork")
+```
+
+# Data processing
+
+First, the data will be preprocessed and saved as an `DESeqDataSet` object, as described in Section 3.3.1 of my thesis.
+
+```{r create_dds}
+# Read the gene expression count data from an Excel file
+# The Excel file contains the raw count table for RNA-seq data
+data <- readxl::read_excel("GSE130842_Count_table_Delacher_et_al_2019.xlsx")
+
+# Extract the gene names from the first column of the dataset
+gene_names <- data$ID  # 'ID' column contains gene names
+
+# Convert the remaining columns (gene counts) to a matrix
+# Skip the first column which contains gene names
+data <- as.matrix(data[, -1])
+
+# Assign gene names as row names to the count matrix
+rownames(data) <- gene_names
+
+# Subset the data for specific columns (samples)
+# Columns 33:36 and 41:44 represent selected samples for analysis
+data <- data[, c(33:36, 41:44)]
+
+# Read the metadata file that contains information about the samples
+# Metadata contains columns describing conditions and replicates
+metadata <- utils::read.csv("GSE130842_Metadata.csv") 
+
+# Subset relevant columns from the metadata (conditions and replicate number)
+metadata <- metadata[, c(2:3)]
+
+# Create a DESeq2 dataset object from the count matrix and metadata
+# This dataset will be used for differential expression analysis
+# The design formula (~condition) specifies that the analysis should model the 'condition' variable
+dds <- DESeqDataSetFromMatrix(countData = data, 
+                              colData = metadata,
+                              design = ~condition)
+
+# Estimate the size factors for normalization of the data
+# Size factors are used to normalize the sequencing depth across samples
+dds <- estimateSizeFactors(dds)
+```
+
+# Exploratory Data Analysis using pcaExplorer 
+
+
+```{r annodf}
+# Retrieve gene annotation using the OrgDb database for *Mus musculus* (mouse)
+# The annotation is matched using the "ENSEMBL" identifier.
+anno_df <- pcaExplorer::get_annotation_orgdb(dds, "org.Mm.eg.db", "ENSEMBL")
+```
+
+
+```{r pcaExplorer, eval = F}
+# Launch the PCAExplorer application to interactively explore principal component analysis (PCA) results.
+# The function `pcaExplorer()` is called with the following inputs:
+# - dds: A DESeq2 dataset object containing count data and experimental metadata
+# - annotation: The annotation data frame (anno_df) containing gene annotations for better interpretation
+# This opens a Shiny app that allows for interactive exploration of PCA and downstream analyses.
+pcaExplorer(dds = dds, annotation = anno_df)
+```
+
+
+# Differential Gene Expression Analysis using ideal and GeneTonic
+
+
+```{r de-ideal, eval = F}
+# Launches the iDEAL Shiny app for interactive DE analysis
+# - dds_obj: DESeq2 dataset object used for differential expression analysis
+# - annotation_obj: Annotation object containing gene annotations (from `get_annotation_orgdb`)
+# The `ideal()` function opens the interactive DE analysis tool that allows for visualization, interpretation, and exploration of DE results.
+ideal(dds_obj = dds, annotation_obj = anno_df)
+```
+
+
+
+```{r de-GeneTonic}
+# Reading in the differential expression (DE) gene results from a pre-generated CSV file
+# This file contains the DE genes and their associated statistics
+de_genes <- read.csv("table_DE_results_ideal.csv")
+
+# Converting the data into a DESeqResults object, which stores DE analysis results
+# - res_de: Contains the DE genes and their statistics for downstream analysis
+res_de <- DESeqResults(de_genes)
+rownames(res_de) <- res_de$X  # Assign rownames for easy indexing later
+colnames(res_de)[colnames(res_de) == "symbol"] <- "SYMBOL"
+
+# Reading the functional enrichment results from a CSV file (TopGO results)
+# Limiting the results to the top 500 enriched terms for further processing
+topGOResults <- read.csv("table_Functional_enrichment_Results.csv")
+topGOResults <- topGOResults[c(1:500),]
+
+# This function processes the TopGO results to ensure the format is compatible
+# with downstream analysis functions in `GeneTonic`.
+# `shake_topGOtableResult` modifies or reorders the table as needed.
+topGOResults <- shake_topGOtableResult(topGOResults)
+
+# Aggregating scores for the gene sets and the DE genes, linking DE results with functional enrichment.
+# The `get_aggrscores` function calculates aggregated enrichment scores by combining the topGO results
+# and DE results (res_de) and integrating gene annotations from the annotation object (anno_df).
+res_enrich <- get_aggrscores(topGOResults,
+                             res_de,
+                             anno_df)
+
+# Creating a GeneTonicList (gtl) object, which consolidates all required input data for `GeneTonic`:
+# - dds: DESeq2 dataset object
+# - res_de: Differential expression results object
+# - res_enrich: Functional enrichment scores calculated from `get_aggrscores`
+# - anno_df: Gene annotation information
+# The gtl object is necessary for launching the `GeneTonic()` app.
+gtl <- GeneTonicList(dds, 
+                     res_de, 
+                     res_enrich, 
+                     anno_df)
+```
+
+```{r LaunchGeneTonic, eval = F}
+# Launch the `GeneTonic()` Shiny app, which provides an interactive platform for 
+# exploring and visualizing the results of differential expression and functional enrichment analysis.
+GeneTonic(gtl = gtl)
+```
+
+
+# Functional Enrichment Result Interpretation using GeDi
+
+
+```{r GeDi, eval = F}
+GeDi::GeDi(gtl = gtl)
+```
+
+
+# Figure Generation
+
+This part will document the code for some of the figures included in my thesis. 
+
+```{r}
+# Extract the gene sets from the 'gtl' object, specifically from the enrichment results
+genesets <- gtl$res_enrich
+
+# Rename the columns in the 'genesets' data frame so that it 
+# can be used directly in `GeDi`
+names(genesets)[names(genesets) == "gs_id"] <- "Genesets"
+names(genesets)[names(genesets) == "gs_genes"] <- "Genes"
+names(genesets)[names(genesets) == "gs_description"] <- "Term"
+
+# Prepare the gene sets for further analysis by extracting and formatting the gene information
+genes <- prepareGenesetData(genesets)
+
+# Apply a filter to exclude gene sets that have 200 or more genes
+filter <- sapply(genes, function(x) length(x) >= 200)
+
+# Remove the filtered out, large gene sets from the 'genesets' data frame
+genesets <- genesets[!filter, ]
+
+# Prepare the filtered gene sets for further analysis by reapplying the data preparation function
+genes <- prepareGenesetData(genesets)
+```
+
+
+## Dendrogram Example of Figure 8 and Network Example of Figure 9
+
+```{r}
+# Create a copy of the 'genesets' data frame to use as example data for further analysis
+example_data <- genesets
+
+# Filter the 'example_data' to include only specific gene sets, identified by their GO terms
+example_data <-
+  example_data[example_data$Genesets %in% c("GO:0051988", "GO:0051987", "GO:0051315", "GO:0007094", "GO:1901970", "GO:1905820", "GO:0051984", "GO:0090267", "GO:0051255",
+ "GO:1902412", "GO:0051231"),]
+
+# Prepare the filtered gene sets for further analysis by extracting the gene information
+example_genes <- prepareGenesetData(example_data)
+
+# Calculate the Jaccard distance scores for the selected gene sets
+jaccard_scores <- getJaccardMatrix(example_genes)
+
+# Set the row and column names of the distance matrix to be the names of the gene sets
+rownames(jaccard_scores) <- colnames(jaccard_scores) <- example_data$Genesets
+
+# Generate a dendrogram 
+d <- distanceDendro(jaccard_scores)
+
+# Increase the text size of the abscissa labels for better readability and adjust the line width
+d <- d + 
+  theme(axis.text.x = element_text(size = 10)) +  
+  geom_path(linewidth = 5)  
+
+# Display the customized dendrogram plot
+d
+
+# Build a graph object from the adjacency matrix derived from the Jaccard scores,
+# using a threshold of 0.67 to determine similarity between gene sets
+g <- buildGraph(getAdjacencyMatrix(jaccard_scores, 0.67))
+
+# Use 'visNetwork' to visualize the graph,
+# set node color to blue and node border and edge color to black
+visNetwork::visIgraph(g) %>%
+  visNodes(color = list(
+            background = "#0092AC",
+            border = "#545454" ), 
+           font = list(size = 20)) %>% 
+  visEdges(width = 3) 
+```
+
+
+## Graph Network Examples of Figure 10
+
+```{r}
+# Create a copy of the 'genesets' data to be used for further analysis and prepare data
+example_data <- genesets
+example_genes <- prepareGenesetData(example_data)
+
+# Calculate the Jaccard distance matrix for the gene sets
+jaccard_scores <- getJaccardMatrix(example_genes)
+
+# Set the row and column names of the Jaccard distance matrix to be the names of the gene sets
+rownames(jaccard_scores) <- colnames(jaccard_scores) <- example_data$Genesets
+
+# Perform Louvain clustering on the Jaccard distance matrix with a threshold of 0.4
+louvain <- louvainClustering(jaccard_scores, 0.4)
+
+# Perform Fuzzy clustering on the gene sets 
+# Seed clusters are identified with thresholds 0.65 and 0.3, and the final clustering is done with a threshold of 0.5
+fuzzy <- fuzzyClustering(seedFinding(jaccard_scores, 0.65, 0.3), 0.5)
+
+# Build a graph object for the Louvain and Fuzzy clustering results
+g_Louvain <- buildClusterGraph(louvain, 
+                               example_data,
+                               example_data$Genesets,
+                               color_by = "Cluster")
+
+g_Fuzzy <- buildClusterGraph(fuzzy, 
+                             example_data,
+                             example_data$Genesets,
+                             color_by = "Cluster")
+
+# Visualize the Louvain and Fuzzy clustering graph 
+visNetwork::visIgraph(g_Louvain) %>% 
+  visNodes(color = list(border = "#545454")) %>% 
+  visEdges(color = list(border = "#545454"), width = 10)
+
+visNetwork::visIgraph(g_Fuzzy) %>% 
+  visNodes(color = list(border = "#545454")) %>% 
+  visEdges(color = list(border = "#545454"), width = 10) 
+```
+
+## Literature Review of Figures 15 to 17
+
+### Read in the data
+
+```{r}
+paper_20 <- read_xlsx("LiteraturReviewResults.xlsx", 
+                      sheet = "Randomly_Selected_20_Results")
+
+paper_33 <- read_xlsx("LiteraturReviewResults.xlsx", 
+                      sheet = "Randomly_Selected_33_Results")
+
+paper_44 <- read_xlsx("LiteraturReviewResults.xlsx", 
+                      sheet = "Randomly_selected_44_paper")
+```
+
+### Plots on the details on the enrichment analysis
+
+```{r}
+enrich20 <- data.frame(table(paper_20$`Details (at all) on enrichment analysis`)) 
+colnames(enrich20) <- c("Detail", "Frequency")
+ggplot(enrich20,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#93AA00", "#F8766D", "#D39200", "darkgrey"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Degree of Detail on the enrichment methods") +
+  theme_bw(base_size = 18) +
+  coord_flip() + 
+  geom_text(
+    aes(x = Detail, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 13))
+
+
+enrich33 <- data.frame(table(paper_33$`Details (at all) on enrichment analysis`)) 
+colnames(enrich33) <- c("Detail", "Frequency")
+ggplot(enrich33,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#93AA00", "#F8766D", "#D39200", "darkgrey"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Degree of Detail on the enrichment methods") +
+  theme_bw(base_size = 18) +
+  coord_flip() + 
+    geom_text(
+    aes(x = Detail, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 16))
+
+enrich44 <- data.frame(table(paper_44$`Details on enrichment analysis`)) 
+colnames(enrich44) <- c("Detail", "Frequency")
+ggplot(enrich44,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "#93AA00","#D39200", "darkgrey"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Degree of Detail on the enrichment methods") +
+  theme_bw(base_size = 18) +
+  coord_flip() + 
+    geom_text(
+    aes(x = Detail, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+### Gene Set Libraries Used
+
+```{r}
+
+gs_Libraries20 <- paper_20$`Gene set libraries used`
+gs_Libraries20 <- unlist(strsplit(gs_Libraries20, '[,]'))
+library_20 <- data.frame(table(gs_Libraries20)) 
+colnames(library_20) <- c("Library", "Frequency")
+library_20$Library <- as.factor(library_20$Library)
+
+ggplot(library_20, aes(x = reorder(Library,Frequency), y = Frequency, fill = Library)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#00C19F", "#F8766D", "#00B9E3",
+                               "#D39200","darkgrey", "#93AA00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Gene Set Library used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() + 
+    geom_text(
+    aes(x = Library, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+gs_Libraries33 <- paper_33$`Gene set libraries used`
+gs_Libraries33 <- unlist(strsplit(gs_Libraries33, '[,]'))
+library_33 <- data.frame(table(gs_Libraries33)) 
+colnames(library_33) <- c("Library", "Frequency")
+library_33$Library <- as.factor(library_33$Library)
+
+ggplot(library_33, aes(x = reorder(Library,Frequency), y = Frequency, fill = Library)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#93AA00", "#00C19F", "#00B9E3",
+                               "#F8766D", "darkgrey","#D39200"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Gene Set Library used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+     geom_text(
+    aes(x = Library, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+gs_Libraries44 <- paper_44$`Gene set libraries used`
+gs_Libraries44 <- unlist(strsplit(gs_Libraries44, '[,]'))
+library_44 <- data.frame(table(gs_Libraries44)) 
+colnames(library_44) <- c("Library", "Frequency")
+library_44$Library <- as.factor(library_44$Library)
+
+ggplot(library_44, aes(x = reorder(Library,Frequency), y = Frequency, fill = Library)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#D39200", "#FF65AC", "#93AA00", "#00B9E3",  
+                               "#00BA38", "darkgrey","#00C19F" ),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Gene Set Library used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+     geom_text(
+    aes(x = Library, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+
+### Software used
+
+```{r}
+
+software20 <- paper_20$`Software being used`
+software20 <- unlist(strsplit(software20, ', '))
+software20 <- data.frame(table(software20)) 
+colnames(software20) <- c("Software", "Frequency")
+
+ggplot(software20,aes(x = reorder(Software,Frequency), y = Frequency, fill = Software)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#FF65AC", "#F8766D", "#E18A00", "#BE9C00", "#8CAB00",
+                               "#00ACFC", "#D575FE", "#24B700", "darkgrey","lightgrey",
+                               "#00BE70", "#00C1AB", "#00BBDA"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Software used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+     geom_text(
+    aes(x = Software, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  )
+
+software33 <- paper_33$`Software being used`
+software33 <- unlist(strsplit(software33, ', '))
+software33 <- data.frame(table(software33)) 
+colnames(software33) <- c("Software", "Frequency")
+
+ggplot(software33,aes(x = reorder(Software,Frequency), y = Frequency, fill = Software)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#00BE70", "#D575FE", "#00C1AB", "#00BBDA","#F8766D",
+                               "#E18A00", "#00ACFC", "darkgrey",  "lightgrey","#BE9C00",
+                               "#8CAB00", "#24B700"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Software used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+       geom_text(
+    aes(x = Software, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+software44 <- paper_44$`Software used`
+software44 <- unlist(strsplit(software44, ', '))
+software44 <- data.frame(table(software44)) 
+colnames(software44) <- c("Software", "Frequency")
+
+ggplot(software44,aes(x = reorder(Software,Frequency), y = Frequency, fill = Software)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#FF65AC", "#F8766D", "#00C1AB", "#E18A00", "#BE9C00",
+                               "#D575FE", "#00BBDA", "#00ACFC", "darkgrey", "lightgrey", 
+                               "#8CAB00", "#24B700","#00BE70"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Software used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+       geom_text(
+    aes(x = Software, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+### Function used
+
+```{r}
+
+function20 <- data.frame(table(paper_20$`Details on test used`))
+colnames(function20) <- c("Test", "Frequency")
+
+ggplot(function20,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "darkgrey", "lightgrey"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Test/Function used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+       geom_text(
+    aes(x = Test, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) + 
+  ylim(c(0, 16))
+
+function33 <- data.frame(table(paper_33$`Details on test used`))
+colnames(function33) <- c("Test", "Frequency")
+
+ggplot(function33,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#E18A00", "darkgrey", "lightgrey"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Test/Function used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+         geom_text(
+    aes(x = Test, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 19))
+dev.off()
+
+function44 <- paper_44$`Details on statistical test/procedure`
+function44 <- unlist(strsplit(function44, ', '))
+function44 <- data.frame(table(function44)) 
+colnames(function44) <- c("Test", "Frequency")
+
+ggplot(function44,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#8CAB00", "#E18A00", "#00ACFC",
+                               "darkgrey", "lightgrey", "#BE9C00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Test/Function used") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+         geom_text(
+    aes(x = Test, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+```
+
+
+
+### Summary as a Table
+
+```{r}
+table20 <- data.frame(table(paper_20$`Summary results being presented as table`))
+colnames(table20) <- c("Table", "Frequency")
+ggplot(table20,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "#D39200","darkgrey", "#93AA00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Results presented as Table") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+         geom_text(
+    aes(x = Table, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  )
+
+table33 <- data.frame(table(paper_33$`Summary results being presented as table`))
+colnames(table33) <- c("Table", "Frequency")
+ggplot(table33,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "#D39200","darkgrey", "#93AA00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Results presented as Table") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+           geom_text(
+    aes(x = Table, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+table44 <- data.frame(table(paper_44$`Summary results presented as table`))
+colnames(table44) <- c("Table", "Frequency")
+ggplot(table44,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "#D39200","darkgrey", "#93AA00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Results presented as Table") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+           geom_text(
+    aes(x = Table, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+### Summary presented visually
+
+```{r}
+visual20 <- paper_20$`Summary results being presented in a graph`
+visual20 <- unlist(strsplit(visual20, ','))
+visual20 <- data.frame(table(visual20)) 
+colnames(visual20) <- c("Visualization", "Frequency")
+
+ggplot(visual20,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = Visualization)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#E18A00", "#FF65AC", "#BE9C00", "#00BBDA",
+                               "#8CAB00", "#00ACFC", "#24B700", "darkgrey",
+                                "#00C1AB" ),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Type of Visualization") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+           geom_text(
+    aes(x = Visualization, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 14))
+
+visual33 <- paper_33$`Summary results being presented in a graph`
+visual33 <- unlist(strsplit(visual33, ','))
+visual33 <- data.frame(table(visual33)) 
+colnames(visual33) <- c("Visualization", "Frequency")
+
+ggplot(visual33,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = Visualization)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#00ACFC", "#F8766D", "#00BBDA", "#E18A00", "#BE9C00",
+                               "#FF65AC", "#8CAB00", "#D575FE" , "#24B700", "#8B93FF",
+                               "darkgrey", "#00BE70", "#00C1AB"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Type of Visualization") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Visualization, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+visual44 <- paper_44$`Summary results presented as graph`
+visual44 <- unlist(strsplit(visual44, ','))
+visual44 <- data.frame(table(visual44)) 
+colnames(visual44) <- c("Visualization", "Frequency")
+
+ggplot(visual44,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = Visualization)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#00ACFC", "#FF65AC", "#00BE70", 
+                               "#D575FE", "#E18A00", "#BE9C00", "#00C1AB",
+                               "#00BBDA", "darkgrey", "#8CAB00" ),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Type of Visualization") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Visualization, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+### Aggregation of Results
+
+```{r}
+aggregation20 <- data.frame(table(paper_20$`Aggregation of results being performed`))
+colnames(aggregation20) <- c("Aggregation", "Frequency")
+
+ggplot(aggregation20,aes(x = reorder(Aggregation,Frequency),
+                   y = Frequency, fill = Aggregation)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "#93AA00", "darkgrey", "#D39200"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Aggregation on the Results performed") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+    geom_text(
+    aes(x = Aggregation, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+aggregation33 <- data.frame(table(paper_33$`Aggregation of results being performed`))
+colnames(aggregation33) <- c("Aggregation", "Frequency")
+
+ggplot(aggregation33,aes(x = reorder(Aggregation,Frequency),
+                   y = Frequency, fill = Aggregation)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#93AA00", "darkgrey", "#D39200"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Aggregation on the Results performed") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+  geom_text(
+    aes(x = Aggregation, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 15))
+
+aggregation44 <- data.frame(table(paper_44$`Aggregation of results`))
+colnames(aggregation44) <- c("Aggregation", "Frequency")
+
+ggplot(aggregation44,aes(x = reorder(Aggregation,Frequency),
+                   y = Frequency, fill = Aggregation)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#93AA00", "darkgrey", "#D39200"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Aggregation on the Results performed") +
+  theme_bw(base_size = 18) +
+  coord_flip() +
+  geom_text(
+    aes(x = Aggregation, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+```
+
+### Selection of specific Gene Sets
+
+```{r}
+
+selection20 <- data.frame(table(paper_20$`Selection of specific genesets presented in the results`))
+colnames(selection20) <- c("Selection", "Frequency")
+
+ggplot(selection20,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("darkgrey", "#F8766D"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Only selected Gene Sets presented") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+  geom_text(
+    aes(x = Selection, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 17))
+
+selection33 <- data.frame(table(paper_33$`Selection of specific genesets presented in the results`))
+colnames(selection33) <- c("Selection", "Frequency")
+
+ggplot(selection33,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("darkgrey", "#F8766D"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Only selected Gene Sets presented") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Selection, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 21))
+
+selection44 <- data.frame(table(paper_44$`Selection of specific genesets`))
+colnames(selection44) <- c("Selection", "Frequency")
+
+ggplot(selection44,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c( "darkgrey", "#F8766D"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Only selected Gene Sets presented") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Selection, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0, 25))
+
+```
+
+### Reason for Selection
+
+```{r}
+
+justification20 <- data.frame(table(paper_20$`Selection justified in some manner`))
+colnames(justification20) <- c("Justification", "Frequency")
+
+ggplot(justification20,aes(x = reorder(Justification,Frequency), y = Frequency, fill = Justification)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("Top" = "#FF65AC", "Not applicable" = "darkgrey",
+                      "Not stated" = "lightgrey", "Rich factor" =  "#00BBDA",
+                      "p value" = "#8CAB00", "Number DE genes" =  "#BE9C00", 
+                      "Literature" = "#E18A00", "Highest Enrichment" = "#F8766D"),
+    
+  
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Justification for Selection") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Justification, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  )
+
+justification33 <- data.frame(table(paper_33$`Selection justified in some manner`))
+colnames(justification33) <- c("Justification", "Frequency")
+
+ggplot(justification33,aes(x = reorder(Justification,Frequency), y = Frequency, fill = Justification)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "darkgrey", "lightgrey",
+                               "#E18A00", "#8CAB00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Justification for Selection") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+    geom_text(
+    aes(x = Justification, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) +
+  ylim(c(0,15))
+
+justification44 <- paper_44$`Selection justified`
+justification44 <- unlist(strsplit(justification44, ', '))
+justification44 <- data.frame(table(justification44))
+colnames(justification44) <- c("Justification", "Frequency")
+
+ggplot(justification44,aes(x = reorder(Justification,Frequency), y = Frequency, fill = Justification)) +
+  geom_bar(stat ="identity") +
+  scale_fill_manual(values = c("#F8766D", "#E18A00", "#FF65AC", "darkgrey",
+                               "lightgrey", "#00ACFC", "#BE9C00", "#8CAB00"),
+                    aesthetics = "fill",
+                    guide = F) +
+  labs(x = "", title = "Justification for Selection") +
+  theme_bw(base_size = 18) + 
+  coord_flip() +
+   geom_text(
+    aes(x = Justification, y = Frequency, label = Frequency), 
+    hjust = -0.5, size = 5,
+    position = position_dodge(width = 1),
+    inherit.aes = TRUE
+  ) + 
+  ylim(c(0, 25))
+
+```
+
+### Summary Figure
+
+```{r}
+columns_to_check <- c(
+  "Details (at all) on enrichment analysis",
+  "Gene set libraries used",
+  "Details on test used",
+  "Software being used",
+  "Summary results being presented as table",
+  "Summary results being presented in a graph",
+  "Aggregation of results being performed",
+  "Selection of specific genesets presented in the results",
+  "Selection justified in some manner"
+)
+
+checkPaperScore <- function(paper, columns){
+  n_paper <- nrow(paper)
+  summery_score <- c(rep(0, n_paper))
+  
+  for(i in 1:n_paper) {
+  entry <- paper[i, ]
+  score <- 0
+  
+  # Check each column for "Not stated" or "Not applicable"
+  for (col in columns_to_check) {
+    if(col != "Details (at all) on enrichment analysis"){
+      if(!is.null(entry[[col]]) && !(entry[[col]] %in% c("Not stated", "Not applicable", "F"))) {
+        score <- score + 1
+      }
+    }else{
+      if(!is.null(entry[[col]]) && entry[[col]] == "Detailed") {
+        score <- score + 1
+      }
+    }
+    }
+  summery_score[i] <- score
+  }
+  return(summery_score)
+}
+
+
+summery_score_20 <- checkPaperScore(paper_20, columns_to_check)
+
+summery_score_33 <- checkPaperScore(paper_33, columns_to_check)
+
+columns_to_check <- colnames(paper_44)[6:15]
+columns_to_check[1] <- "Details (at all) on enrichment analysis"
+
+summery_score_44 <- checkPaperScore(paper_44, columns_to_check)
+
+scores <- c(summery_score_20, summery_score_33, summery_score_44)
+scores <- as.data.frame(scores[scores != 0])
+colnames(scores)<- "Size"
+
+p <- ggplot(scores, aes(x = .data$Size)) +
+    geom_histogram(binwidth = 1, fill = "#0092AC") +
+    theme_bw() +
+  scale_x_continuous(limits = c(0, 9.5), breaks = 0:10) +
+  theme(panel.grid.major.x = element_blank(),
+        axis.text = element_text(size = 10))
+p
+```
+
+
+
+
+
+## Comparison of various Alpha paramters of Figure XX
+
+```{r comparisonHeatmaps}
+# Filter out gene sets that have fewer than 10 associated genes
+filter <- sapply(genes, function(x) length(x) >= 10)
+genesets_small <- genesets[!filter, ]  
+genes_small <- prepareGenesetData(genesets_small) 
+
+# Retrieve PPI information for the data 
+string_db <- getStringDB(as.numeric(getId("Mus musculus")))
+anno_df <- getAnnotation(string_db)
+ppi <- getPPI(genes_small, string_db, anno_df)
+
+# Calculate the Meet-Min (MM) distances
+mm <- getMeetMinMatrix(genes_small)
+# Set the row and column names of the MM matrix to be the names of the gene sets
+rownames(mm) <- colnames(mm) <- genesets_small$Genesets
+
+# Create a heatmap of the MM distance matrix without plot labels
+d <- distanceHeatmap(mm, plot_labels = FALSE, title = "")
+
+# Draw the heatmap and extract the row order for consistent comparison
+ht <- draw(d)
+row_order <- row_order(ht)
+
+# Calculate pMM matrices for different alpha values (0, 0.5, and 1)
+pMM0 <- getpMMMatrix(genes_small, ppi, alpha = 0)   
+rownames(pMM0) <- colnames(pMM0) <- genesets_small$Genesets
+
+pMM5 <- getpMMMatrix(genes_small, ppi, alpha = 0.5)
+rownames(pMM5) <- colnames(pMM5) <- genesets_small$Genesets
+
+pMM1 <- getpMMMatrix(genes_small, ppi, alpha = 1)   
+rownames(pMM1) <- colnames(pMM1) <- genesets_small$Genesets
+
+# Create and draw a heatmap for the original MM scores, keeping row order consistent
+d <- distanceHeatmap(mm[row_order, row_order], 
+                     plot_labels = F,
+                     cluster_rows = F,
+                     cluster_columns = F,
+                     title = "")
+draw(d)
+
+# Create and draw a heatmap for pMM scores with alpha = 0
+d <- distanceHeatmap(pMM0[row_order, row_order],
+                     plot_labels = F,
+                     cluster_rows = FALSE,
+                     cluster_columns = FALSE,
+                     title = "")
+draw(d)
+
+# Create and draw a heatmap for pMM scores with alpha = 0.5
+d <- distanceHeatmap(pMM5[row_order, row_order],
+                     plot_labels = F,
+                     cluster_rows = FALSE,
+                     cluster_columns = FALSE,
+                     title = "")
+draw(d)
+
+# Create and draw a heatmap for pMM scores with alpha = 1
+d <- distanceHeatmap(pMM1[row_order, row_order],
+                     plot_labels = F,
+                     cluster_rows = FALSE,
+                     cluster_columns = FALSE,
+                     title = "")
+draw(d)
+
+```
+
+## Word Clouds of Figure XX
+
+```{r}
+# Calculate the Gene Ontology (GO) semantic distance matrix for the gene sets
+goDistances <- goDistance(genesets$Genesets, species = "org.Mm.eg.db")
+
+# Perform fuzzy clustering on the GO distance matrix.
+fuzzy_clustering <- fuzzyClustering(seedFinding(goDistances, 0.5, 0.5), 0.5)
+
+# Extract a cluster that represent T cell-related gene sets.
+# The specific cluster indices were manually determined in a running `GeDi`
+tCellCluster <- unique(unlist(fuzzy_clustering[c(7, 8, 14, 17, 20, 24, 28, 30, 45, 49, 50, 58, 62, 64, 65, 70, 72, 76, 81, 85, 92, 96, 103, 105, 106, 112, 114, 121, 124)]))
+
+# Generate a word cloud visualization for the T cell-related gene sets.
+enrichmentWordcloud(example_data[tCellCluster, ])
+
+# Extract a cluster that are related to protein membrane processes.
+# Again, specific cluster indices are manually selected.
+proteinMembraneCluster <- unique(unlist(fuzzy_clustering[c(5, 6, 21, 23, 35, 43, 52, 54, 57, 69, 73, 80, 88, 102, 126)]))
+
+# Generate a word cloud visualization for the protein membrane-related gene sets.
+enrichmentWordcloud(example_data[proteinMembraneCluster, ])
+```
+
+## Clustering Results of Figures XX
+
+```{r}
+# Load precomputed distance matrices for the pMM and GO distance metrics
+pMMDistances <- readRDS("pMM_Distances.RDS")
+goDistances <- readRDS("GODistances.RDS")
+
+# Apply Louvain clustering algorithm to the pMM distance matrix with clustering threshold 0.5
+louvainpMM <- louvainClustering(pMMDistances, 0.5)
+
+# Build a cluster graph from the Louvain clustering results for the pMM distances
+g_louvainpMM <- buildClusterGraph(louvainpMM,
+                                  genesets,
+                                  genesets$Genesets,
+                                  color_by = "Cluster")
+
+# Visualize the Louvain clustering graph using the `visNetwork` package
+visNetwork::visIgraph(g_louvainpMM) %>% 
+  visNodes(color = list(border = "#545454")) %>%
+  visEdges(color = list(border = "#545454"), width = 10)
+
+# Apply Fuzzy clustering to the pMM distance matrix and
+# visualisize the results afterwards
+fuzzypMM <- fuzzyClustering(seedFinding(pMMDistances, 0.5, 0.5), 0.5)
+
+g_fuzzypMM <- buildClusterGraph(fuzzypMM,
+                                genesets,
+                                genesets$Genesets,
+                                color_by = "Cluster")
+
+visNetwork::visIgraph(g_fuzzypMM) %>% 
+  visNodes(color = list(border = "#545454")) %>%
+  visEdges(color = list(border = "#545454"), width = 5)
+
+# Apply Louvain clustering algorithm to the GO distance matrix
+# Again, visualize the results afterwards
+louvainGO <- louvainClustering(goDistances, 0.5)
+
+g_louvainGO <- buildClusterGraph(louvainGO,
+                                 genesets,
+                                 genesets$Genesets,
+                                 color_by = "Cluster")
+
+visNetwork::visIgraph(g_louvainGO) %>% 
+  visNodes(color = list(border = "#545454")) %>%
+  visEdges(color = list(border = "#545454"), width = 10)
+```
+
+
+
+
+# Session information {-}
+
+```{r}
+sessionInfo()
+```
+
+
+# Bibliography {-}
