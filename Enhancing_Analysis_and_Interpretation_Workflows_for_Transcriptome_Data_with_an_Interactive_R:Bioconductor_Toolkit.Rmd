@@ -327,20 +327,20 @@ visNetwork::visIgraph(g_Fuzzy) %>%
 ### Read in the data
 
 ```{r}
-paper_20 <- read_xlsx("LiteraturReviewResults.xlsx", 
-                      sheet = "Randomly_Selected_20_Results")
+paper_20 <- read_xlsx("LiteratureReviewResults.xlsx", 
+                      sheet = "First search, 20 paper")
 
-paper_33 <- read_xlsx("LiteraturReviewResults.xlsx", 
-                      sheet = "Randomly_Selected_33_Results")
+paper_33 <- read_xlsx("LiteratureReviewResults.xlsx", 
+                      sheet = "Second search, 33 paper")
 
-paper_44 <- read_xlsx("LiteraturReviewResults.xlsx", 
-                      sheet = "Randomly_selected_44_paper")
+paper_44 <- read_xlsx("LiteratureReviewResults.xlsx", 
+                      sheet = "Third search, 44 paper")
 ```
 
 ### Plots on the details on the enrichment analysis
 
 ```{r}
-enrich20 <- data.frame(table(paper_20$`Details (at all) on enrichment analysis`)) 
+enrich20 <- data.frame(table(paper_20$`Degree of Detail on the Enrichment Method`)) 
 colnames(enrich20) <- c("Detail", "Frequency")
 ggplot(enrich20,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
   geom_bar(stat ="identity") +
@@ -359,7 +359,7 @@ ggplot(enrich20,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)
   ylim(c(0, 13))
 
 
-enrich33 <- data.frame(table(paper_33$`Details (at all) on enrichment analysis`)) 
+enrich33 <- data.frame(table(paper_33$`Degree of Detail on the Enrichment Method`)) 
 colnames(enrich33) <- c("Detail", "Frequency")
 ggplot(enrich33,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
   geom_bar(stat ="identity") +
@@ -377,7 +377,7 @@ ggplot(enrich33,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)
   ) +
   ylim(c(0, 16))
 
-enrich44 <- data.frame(table(paper_44$`Details on enrichment analysis`)) 
+enrich44 <- data.frame(table(paper_44$`Degree of Detail on the Enrichment Method`)) 
 colnames(enrich44) <- c("Detail", "Frequency")
 ggplot(enrich44,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)) +
   geom_bar(stat ="identity") +
@@ -400,9 +400,8 @@ ggplot(enrich44,aes(x = reorder(Detail,Frequency), y = Frequency, fill = Detail)
 ### Gene Set Libraries Used
 
 ```{r}
-
-gs_Libraries20 <- paper_20$`Gene set libraries used`
-gs_Libraries20 <- unlist(strsplit(gs_Libraries20, '[,]'))
+gs_Libraries20 <- paper_20$`Gene Set Library used`
+gs_Libraries20 <- unlist(strsplit(gs_Libraries20, ",\\s*"))
 library_20 <- data.frame(table(gs_Libraries20)) 
 colnames(library_20) <- c("Library", "Frequency")
 library_20$Library <- as.factor(library_20$Library)
@@ -424,8 +423,8 @@ ggplot(library_20, aes(x = reorder(Library,Frequency), y = Frequency, fill = Lib
   ) +
   ylim(c(0, 15))
 
-gs_Libraries33 <- paper_33$`Gene set libraries used`
-gs_Libraries33 <- unlist(strsplit(gs_Libraries33, '[,]'))
+gs_Libraries33 <- paper_33$`Gene Set Library used`
+gs_Libraries33 <- unlist(strsplit(gs_Libraries33, ",\\s*"))
 library_33 <- data.frame(table(gs_Libraries33)) 
 colnames(library_33) <- c("Library", "Frequency")
 library_33$Library <- as.factor(library_33$Library)
@@ -447,8 +446,8 @@ ggplot(library_33, aes(x = reorder(Library,Frequency), y = Frequency, fill = Lib
   ) +
   ylim(c(0, 15))
 
-gs_Libraries44 <- paper_44$`Gene set libraries used`
-gs_Libraries44 <- unlist(strsplit(gs_Libraries44, '[,]'))
+gs_Libraries44 <- paper_44$`Gene Set Library used`
+gs_Libraries44 <- unlist(strsplit(gs_Libraries44, ",\\s*"))
 library_44 <- data.frame(table(gs_Libraries44)) 
 colnames(library_44) <- c("Library", "Frequency")
 library_44$Library <- as.factor(library_44$Library)
@@ -476,9 +475,8 @@ ggplot(library_44, aes(x = reorder(Library,Frequency), y = Frequency, fill = Lib
 ### Software used
 
 ```{r}
-
-software20 <- paper_20$`Software being used`
-software20 <- unlist(strsplit(software20, ', '))
+software20 <- paper_20$`Software used`
+software20 <- unlist(strsplit(software20, ",\\s*"))
 software20 <- data.frame(table(software20)) 
 colnames(software20) <- c("Software", "Frequency")
 
@@ -499,8 +497,8 @@ ggplot(software20,aes(x = reorder(Software,Frequency), y = Frequency, fill = Sof
     inherit.aes = TRUE
   )
 
-software33 <- paper_33$`Software being used`
-software33 <- unlist(strsplit(software33, ', '))
+software33 <- paper_33$`Software used`
+software33 <- unlist(strsplit(software33, ",\\s*"))
 software33 <- data.frame(table(software33)) 
 colnames(software33) <- c("Software", "Frequency")
 
@@ -523,7 +521,7 @@ ggplot(software33,aes(x = reorder(Software,Frequency), y = Frequency, fill = Sof
   ylim(c(0, 15))
 
 software44 <- paper_44$`Software used`
-software44 <- unlist(strsplit(software44, ', '))
+software44 <- unlist(strsplit(software44, ",\\s*"))
 software44 <- data.frame(table(software44)) 
 colnames(software44) <- c("Software", "Frequency")
 
@@ -550,8 +548,7 @@ ggplot(software44,aes(x = reorder(Software,Frequency), y = Frequency, fill = Sof
 ### Function used
 
 ```{r}
-
-function20 <- data.frame(table(paper_20$`Details on test used`))
+function20 <- data.frame(table(paper_20$`Statistical Test or Function`))
 colnames(function20) <- c("Test", "Frequency")
 
 ggplot(function20,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) +
@@ -570,7 +567,7 @@ ggplot(function20,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) 
   ) + 
   ylim(c(0, 16))
 
-function33 <- data.frame(table(paper_33$`Details on test used`))
+function33 <- data.frame(table(paper_33$`Statistical Test or Function`))
 colnames(function33) <- c("Test", "Frequency")
 
 ggplot(function33,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) +
@@ -588,10 +585,10 @@ ggplot(function33,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) 
     inherit.aes = TRUE
   ) +
   ylim(c(0, 19))
-dev.off()
 
-function44 <- paper_44$`Details on statistical test/procedure`
-function44 <- unlist(strsplit(function44, ', '))
+
+function44 <- paper_44$`Statistical Test or Function`
+function44 <- unlist(strsplit(function44, ",\\s*"))
 function44 <- data.frame(table(function44)) 
 colnames(function44) <- c("Test", "Frequency")
 
@@ -618,7 +615,7 @@ ggplot(function44,aes(x = reorder(Test,Frequency), y = Frequency, fill = Test)) 
 ### Summary as a Table
 
 ```{r}
-table20 <- data.frame(table(paper_20$`Summary results being presented as table`))
+table20 <- data.frame(table(paper_20$`Table of Results provided`))
 colnames(table20) <- c("Table", "Frequency")
 ggplot(table20,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
   geom_bar(stat ="identity") +
@@ -635,7 +632,7 @@ ggplot(table20,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
     inherit.aes = TRUE
   )
 
-table33 <- data.frame(table(paper_33$`Summary results being presented as table`))
+table33 <- data.frame(table(paper_33$`Table of Results provided`))
 colnames(table33) <- c("Table", "Frequency")
 ggplot(table33,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
   geom_bar(stat ="identity") +
@@ -653,7 +650,7 @@ ggplot(table33,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
   ) +
   ylim(c(0, 15))
 
-table44 <- data.frame(table(paper_44$`Summary results presented as table`))
+table44 <- data.frame(table(paper_44$`Table of Results provided`))
 colnames(table44) <- c("Table", "Frequency")
 ggplot(table44,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
   geom_bar(stat ="identity") +
@@ -676,8 +673,8 @@ ggplot(table44,aes(x = reorder(Table,Frequency), y = Frequency, fill = Table)) +
 ### Summary presented visually
 
 ```{r}
-visual20 <- paper_20$`Summary results being presented in a graph`
-visual20 <- unlist(strsplit(visual20, ','))
+visual20 <- paper_20$Visualisation
+visual20 <- unlist(strsplit(visual20, ",\\s*"))
 visual20 <- data.frame(table(visual20)) 
 colnames(visual20) <- c("Visualization", "Frequency")
 
@@ -699,8 +696,8 @@ ggplot(visual20,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = 
   ) +
   ylim(c(0, 14))
 
-visual33 <- paper_33$`Summary results being presented in a graph`
-visual33 <- unlist(strsplit(visual33, ','))
+visual33 <- paper_33$Visualisation
+visual33 <- unlist(strsplit(visual33, ",\\s*"))
 visual33 <- data.frame(table(visual33)) 
 colnames(visual33) <- c("Visualization", "Frequency")
 
@@ -722,8 +719,8 @@ ggplot(visual33,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = 
   ) +
   ylim(c(0, 15))
 
-visual44 <- paper_44$`Summary results presented as graph`
-visual44 <- unlist(strsplit(visual44, ','))
+visual44 <- paper_44$Visualisation
+visual44 <- unlist(strsplit(visual44, ",\\s*"))
 visual44 <- data.frame(table(visual44)) 
 colnames(visual44) <- c("Visualization", "Frequency")
 
@@ -750,7 +747,7 @@ ggplot(visual44,aes(x = reorder(Visualization,Frequency), y = Frequency, fill = 
 ### Aggregation of Results
 
 ```{r}
-aggregation20 <- data.frame(table(paper_20$`Aggregation of results being performed`))
+aggregation20 <- data.frame(table(paper_20$`Aggregation of Results`))
 colnames(aggregation20) <- c("Aggregation", "Frequency")
 
 ggplot(aggregation20,aes(x = reorder(Aggregation,Frequency),
@@ -770,7 +767,7 @@ ggplot(aggregation20,aes(x = reorder(Aggregation,Frequency),
   ) +
   ylim(c(0, 15))
 
-aggregation33 <- data.frame(table(paper_33$`Aggregation of results being performed`))
+aggregation33 <- data.frame(table(paper_33$`Aggregation of Results`))
 colnames(aggregation33) <- c("Aggregation", "Frequency")
 
 ggplot(aggregation33,aes(x = reorder(Aggregation,Frequency),
@@ -790,7 +787,7 @@ ggplot(aggregation33,aes(x = reorder(Aggregation,Frequency),
   ) +
   ylim(c(0, 15))
 
-aggregation44 <- data.frame(table(paper_44$`Aggregation of results`))
+aggregation44 <- data.frame(table(paper_44$`Aggregation of Results`))
 colnames(aggregation44) <- c("Aggregation", "Frequency")
 
 ggplot(aggregation44,aes(x = reorder(Aggregation,Frequency),
@@ -814,8 +811,7 @@ ggplot(aggregation44,aes(x = reorder(Aggregation,Frequency),
 ### Selection of specific Gene Sets
 
 ```{r}
-
-selection20 <- data.frame(table(paper_20$`Selection of specific genesets presented in the results`))
+selection20 <- data.frame(table(paper_20$`Selection of Gene Sets`))
 colnames(selection20) <- c("Selection", "Frequency")
 
 ggplot(selection20,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
@@ -834,7 +830,7 @@ ggplot(selection20,aes(x = reorder(Selection,Frequency), y = Frequency, fill = S
   ) +
   ylim(c(0, 17))
 
-selection33 <- data.frame(table(paper_33$`Selection of specific genesets presented in the results`))
+selection33 <- data.frame(table(paper_33$`Selection of Gene Sets`))
 colnames(selection33) <- c("Selection", "Frequency")
 
 ggplot(selection33,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
@@ -853,7 +849,7 @@ ggplot(selection33,aes(x = reorder(Selection,Frequency), y = Frequency, fill = S
   ) +
   ylim(c(0, 21))
 
-selection44 <- data.frame(table(paper_44$`Selection of specific genesets`))
+selection44 <- data.frame(table(paper_44$`Selection of Gene Sets`))
 colnames(selection44) <- c("Selection", "Frequency")
 
 ggplot(selection44,aes(x = reorder(Selection,Frequency), y = Frequency, fill = Selection)) +
@@ -877,15 +873,14 @@ ggplot(selection44,aes(x = reorder(Selection,Frequency), y = Frequency, fill = S
 ### Reason for Selection
 
 ```{r}
-
-justification20 <- data.frame(table(paper_20$`Selection justified in some manner`))
+justification20 <- data.frame(table(paper_20$`Justification of Selection`))
 colnames(justification20) <- c("Justification", "Frequency")
 
 ggplot(justification20,aes(x = reorder(Justification,Frequency), y = Frequency, fill = Justification)) +
   geom_bar(stat ="identity") +
   scale_fill_manual(values = c("Top" = "#FF65AC", "Not applicable" = "darkgrey",
-                      "Not stated" = "lightgrey", "Rich factor" =  "#00BBDA",
-                      "p value" = "#8CAB00", "Number DE genes" =  "#BE9C00", 
+                      "Not stated" = "lightgrey", "Rich Factor" =  "#00BBDA",
+                      "p value" = "#8CAB00", "Number of DEG" =  "#BE9C00", 
                       "Literature" = "#E18A00", "Highest Enrichment" = "#F8766D"),
     
   
@@ -901,7 +896,7 @@ ggplot(justification20,aes(x = reorder(Justification,Frequency), y = Frequency, 
     inherit.aes = TRUE
   )
 
-justification33 <- data.frame(table(paper_33$`Selection justified in some manner`))
+justification33 <- data.frame(table(paper_33$`Justification of Selection`))
 colnames(justification33) <- c("Justification", "Frequency")
 
 ggplot(justification33,aes(x = reorder(Justification,Frequency), y = Frequency, fill = Justification)) +
@@ -921,8 +916,8 @@ ggplot(justification33,aes(x = reorder(Justification,Frequency), y = Frequency, 
   ) +
   ylim(c(0,15))
 
-justification44 <- paper_44$`Selection justified`
-justification44 <- unlist(strsplit(justification44, ', '))
+justification44 <- paper_44$`Justification of Selection`
+justification44 <- unlist(strsplit(justification44, ",\\s*"))
 justification44 <- data.frame(table(justification44))
 colnames(justification44) <- c("Justification", "Frequency")
 
@@ -949,15 +944,15 @@ ggplot(justification44,aes(x = reorder(Justification,Frequency), y = Frequency, 
 
 ```{r}
 columns_to_check <- c(
-  "Details (at all) on enrichment analysis",
-  "Gene set libraries used",
-  "Details on test used",
-  "Software being used",
-  "Summary results being presented as table",
-  "Summary results being presented in a graph",
-  "Aggregation of results being performed",
-  "Selection of specific genesets presented in the results",
-  "Selection justified in some manner"
+  "Degree of Detail on the Enrichment Method",
+  "Gene Set Library used",
+  "Statistical Test or Function",
+  "Software used",
+  "Table of Results provided",
+  "Visualisation",
+  "Aggregation of Results",
+  "Selection of Gene Sets",
+  "Justification of Selection"
 )
 
 checkPaperScore <- function(paper, columns){
@@ -970,8 +965,8 @@ checkPaperScore <- function(paper, columns){
   
   # Check each column for "Not stated" or "Not applicable"
   for (col in columns_to_check) {
-    if(col != "Details (at all) on enrichment analysis"){
-      if(!is.null(entry[[col]]) && !(entry[[col]] %in% c("Not stated", "Not applicable", "F"))) {
+    if(col != "Degree of Detail on the Enrichment Method"){
+      if(!is.null(entry[[col]]) && !(entry[[col]] %in% c("Not stated", "Not applicable", "FALSE"))) {
         score <- score + 1
       }
     }else{
@@ -990,8 +985,8 @@ summery_score_20 <- checkPaperScore(paper_20, columns_to_check)
 
 summery_score_33 <- checkPaperScore(paper_33, columns_to_check)
 
-columns_to_check <- colnames(paper_44)[6:15]
-columns_to_check[1] <- "Details (at all) on enrichment analysis"
+#columns_to_check <- colnames(paper_44)[6:15]
+#columns_to_check[1] <- "Details (at all) on enrichment analysis"
 
 summery_score_44 <- checkPaperScore(paper_44, columns_to_check)
 
