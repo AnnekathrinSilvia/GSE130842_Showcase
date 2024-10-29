@@ -1003,9 +1003,9 @@ p <- ggplot(scores, aes(x = .data$Size)) +
     geom_histogram(binwidth = 1, fill = "#0092AC") +
     theme_bw() +
   scale_x_continuous(limits = c(0, 9.5), breaks = 0:10) +
+  xlab("Completeness Score") +
   theme(panel.grid.major.x = element_blank(),
         axis.text = element_text(size = 10))
-p
 ```
 
 
@@ -1141,6 +1141,11 @@ visNetwork::visIgraph(g_fuzzypMM) %>%
 
 # Apply Louvain clustering algorithm to the GO distance matrix
 # Again, visualize the results afterwards
+for(i in 1:100){
+  louvainGO <- louvainClustering(goDistances, 0.5)
+  print(paste("Round ", i, " Number Cluster ", length(louvainGO), sep = "" ))
+}
+
 louvainGO <- louvainClustering(goDistances, 0.5)
 
 g_louvainGO <- buildClusterGraph(louvainGO,
