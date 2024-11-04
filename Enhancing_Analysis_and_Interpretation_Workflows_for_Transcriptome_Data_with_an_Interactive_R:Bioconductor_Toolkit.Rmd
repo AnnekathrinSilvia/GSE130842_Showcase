@@ -999,7 +999,7 @@ p <- ggplot(scores, aes(x = .data$Size)) +
     theme_bw() +
   scale_x_continuous(limits = c(0, 9.5), breaks = 0:10) +
   xlab("Completeness Score") +
-  ylab("Count")
+  ylab("Count") + 
   theme(panel.grid.major.x = element_blank(),
         axis.text = element_text(size = 5),
         axis.title.x = element_text(size = 7),
