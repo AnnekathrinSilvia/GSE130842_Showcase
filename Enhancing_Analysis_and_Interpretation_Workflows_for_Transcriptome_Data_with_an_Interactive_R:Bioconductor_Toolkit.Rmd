@@ -322,7 +322,7 @@ visNetwork::visIgraph(g_Fuzzy) %>%
   visEdges(color = list(border = "#545454"), width = 10) 
 ```
 
-## Literature Review of Figures 15 to 17
+## Literature Review of Figures 16 to 18
 
 ### Read in the data
 
@@ -999,15 +999,19 @@ p <- ggplot(scores, aes(x = .data$Size)) +
     theme_bw() +
   scale_x_continuous(limits = c(0, 9.5), breaks = 0:10) +
   xlab("Completeness Score") +
+  ylab("Count")
   theme(panel.grid.major.x = element_blank(),
-        axis.text = element_text(size = 10))
+        axis.text = element_text(size = 5),
+        axis.title.x = element_text(size = 7),
+        axis.title.y = element_text(size = 7))
+p
 ```
 
 
 
 
 
-## Comparison of various Alpha paramters of Figure XX
+## Comparison of various Alpha paramters of Figure 37
 
 ```{r comparisonHeatmaps}
 # Filter out gene sets that have fewer than 10 associated genes
@@ -1076,7 +1080,7 @@ draw(d)
 
 ```
 
-## Word Clouds of Figure XX
+## Word Clouds of Figure 38
 
 ```{r}
 # Calculate the Gene Ontology (GO) semantic distance matrix for the gene sets
@@ -1100,7 +1104,7 @@ proteinMembraneCluster <- unique(unlist(fuzzy_clustering[c(5, 6, 21, 23, 35, 43,
 enrichmentWordcloud(example_data[proteinMembraneCluster, ])
 ```
 
-## Clustering Results of Figures XX
+## Clustering Results of Figures 39 to 41
 
 ```{r}
 # Load precomputed distance matrices for the pMM and GO distance metrics
